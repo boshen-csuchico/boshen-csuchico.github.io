@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<!--
+This is the closest version. still one last issue:
+If you ever want to revisit it later, the remaining issue is likely:
+- a split whose region is partially overridden by deeper splits, but not fully
+- so it needs partial clipping against descendant regions, not just leaf adjacency
+-->
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Decision Tree Boundary Demo</title>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      margin: 0;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border: 1px solid #dbe2ea;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    h1, h2, h3 {
+      margin-top: 0;
+    }
+    .top {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 18px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+    button, input[type="file"]::file-selector-button {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      border-radius: 10px;
+      padding: 9px 14px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover, input[type="file"]::file-selector-button:hover {
+      background: #f8fafc;
+    }
+    .primary {
+      background: #111827;
+      color: white;
+      border-color: #111827;
+    }
+    .primary:hover {
+      background: #1f2937;
+    }
+    label.inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    input[type="range"] {
+      width: 180px;
+    }
+    canvas {
+      width: 100%;
+      max-width: 100%;
+      background: white;
+      border: 1px solid #dbe2ea;
+      border-radius: 12px;
+      display: block;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .blue { background: #2563eb; }
+    .red { background: #dc2626; }
+    .line {
+      width: 28px;
+      height: 0;
+      border-top: 2px dashed #111827;
+      display: inline-block;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .stat {
+      border: 1px solid #dbe2ea;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fafcff;
+    }
+    .stat-label {
+      color: #64748b;
+      font-size: 13px;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 4px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #dbe2ea;
+      background: #f8fafc;
+      font-size: 12px;
+      margin: 0 6px 6px 0;
+    }
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      border: 1px solid #dbe2ea;
+      border-radius: 12px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 13px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    .step-list {
+      max-height: 320px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .step-item {
+      border: 1px solid #dbe2ea;
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+      font-size: 14px;
+    }
+    .step-item.active {
+      outline: 2px solid #111827;
+    }
+    .tree-view {
+      height: 720px;
+      max-height: 720px;
+      overflow: auto;
+      padding: 4px;
+      font-size: 14px;
+    }
+    .tree-node {
+      margin: 8px 0 8px 18px;
+      padding-left: 14px;
+      border-left: 2px solid #e5e7eb;
+    }
+    .tree-node.root {
+      margin-left: 0;
+      padding-left: 0;
+      border-left: none;
+    }
+    .tree-label {
+      border: 1px solid #dbe2ea;
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+      cursor: pointer;
+      line-height: 1.45;
+    }
+    .tree-label:hover {
+      background: #f8fafc;
+    }
+    .tree-label.active {
+      outline: 2px solid #111827;
+      background: #f8fafc;
+    }
+    .tree-label.branch-left {
+      background: rgba(37, 99, 235, 0.12);
+      border-color: rgba(37, 99, 235, 0.35);
+    }
+    .tree-label.branch-right {
+      background: rgba(236, 72, 153, 0.12);
+      border-color: rgba(236, 72, 153, 0.35);
+    }
+    .tree-label.branch-left.active {
+      background: rgba(37, 99, 235, 0.18);
+    }
+    .tree-label.branch-right.active {
+      background: rgba(236, 72, 153, 0.18);
+    }
+    .tree-label.disabled {
+      cursor: default;
+      opacity: 0.72;
+    }
+    .tree-label.disabled:hover {
+      background: inherit;
+    }
+    .tree-children {
+      margin-top: 8px;
+      display: grid;
+      gap: 8px;
+    }
+    .branch-tag {
+      display: inline-block;
+      margin-right: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      border: 1px solid #dbe2ea;
+      font-size: 12px;
+    }
+    .muted {
+      color: #64748b;
+    }
+    .help p {
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+    @media (max-width: 900px) {
+      .top {
+        grid-template-columns: 1fr;
+      }
+      .two-col {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card" style="margin-bottom:18px;">
+      <h1>Decision Tree Boundary Builder</h1>
+      <p class="muted">
+        This single-file demo shows how a decision tree learns to separate class 1 from class 0 in 2D.
+        Load a CSV file with the Choose File button. Each split is clipped to its node's local region,
+        so the geometry matches a true decision tree much more closely.
+      </p>
+    </div>
+
+    <div class="top">
+      <div class="card">
+        <div class="controls">
+          <button id="playBtn" class="primary">Play build</button>
+          <button id="prevBtn">Previous</button>
+          <button id="nextBtn">Next</button>
+          <button id="resetBtn">Reset</button>
+          <input id="fileInput" type="file" accept=".csv,text/csv" />
+        </div>
+
+        <div class="controls">
+          <label class="inline">Max depth
+            <input id="depthSlider" type="range" min="1" max="6" step="1" value="3" />
+            <span id="depthValue">3</span>
+          </label>
+          <label class="inline">Construction step
+            <input id="stepSlider" type="range" min="0" max="0" step="1" value="0" />
+            <span id="stepValue">0 / 0</span>
+          </label>
+        </div>
+
+        <canvas id="plot" width="760" height="560"></canvas>
+
+        <div class="legend">
+          <div class="legend-item"><span class="dot blue"></span> Class 1 points</div>
+          <div class="legend-item"><span class="dot red"></span> Class 0 points</div>
+          <div class="legend-item"><span class="line"></span> Revealed split lines</div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; justify-content:flex-start;">
+          <button id="fullBoundaryBtn">Plot full decision boundary</button>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:18px;">
+        <div class="card">
+          <h3>Split sequence</h3>
+          <div class="muted" style="font-size:13px; margin-bottom:10px;">
+            Step 0 is the root before any split. Click any node below to jump to that construction step.
+          </div>
+          <div id="stepList" class="tree-view"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:18px; margin-top:18px;">
+      <div class="card">
+        <h3>Dataset</h3>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">Samples</div>
+            <div class="stat-value" id="sampleCount">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Classes</div>
+            <div class="stat-value" id="classList">-</div>
+          </div>
+        </div>
+        <div class="muted" style="font-size:13px; line-height:1.5;">
+          CSV format: <code>x1,x2,label</code>. Use the Choose File button to load a dataset.
+          The demo assumes the first two columns are numeric features and the third column is a 0/1 label.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Current node</h3>
+        <div id="currentNode"></div>
+      </div>
+    </div>
+
+    <div class="card help" style="margin-top:18px;">
+      <h3>How to read the animation</h3>
+      <p>1. The tree begins with all points in one region.</p>
+      <p>2. At each step, it chooses the split with the biggest impurity reduction.</p>
+      <p>3. A split on x1 draws a vertical line inside that node's local rectangle. A split on x2 draws a horizontal line inside that local rectangle.</p>
+      <p>4. The shaded background shows the current predicted class over the plane.</p>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h2>Loaded CSV</h2>
+      <textarea id="csvText"></textarea>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_CSV = ``;
+
+    const state = {
+      rows: [],
+      tree: null,
+      steps: [],
+      sequence: [],
+      currentStep: 0,
+      maxDepth: 3,
+      playing: false,
+      timer: null,
+      showFullBoundary: false
+    };
+
+    const plot = document.getElementById('plot');
+    const ctx = plot.getContext('2d');
+    const csvText = document.getElementById('csvText');
+    const playBtn = document.getElementById('playBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const fullBoundaryBtn = document.getElementById('fullBoundaryBtn');
+    const fileInput = document.getElementById('fileInput');
+    const depthSlider = document.getElementById('depthSlider');
+    const depthValue = document.getElementById('depthValue');
+    const stepSlider = document.getElementById('stepSlider');
+    const stepValue = document.getElementById('stepValue');
+    const currentNode = document.getElementById('currentNode');
+    const stepList = document.getElementById('stepList');
+    const sampleCount = document.getElementById('sampleCount');
+    const classList = document.getElementById('classList');
+
+    function parseCsv(text) {
+      return text.trim().split(/\r?\n/)
+        .map(line => line.split(',').map(v => Number(v.trim())))
+        .filter(parts => parts.length >= 3 && parts.every(v => !Number.isNaN(v)))
+        .map(([x1, x2, y], id) => ({ id, x1, x2, y }));
+    }
+
+    function gini(labels) {
+      if (!labels.length) return 0;
+      let ones = 0;
+      for (const y of labels) if (y === 1) ones++;
+      const p1 = ones / labels.length;
+      const p0 = 1 - p1;
+      return 1 - p1 * p1 - p0 * p0;
+    }
+
+    function majorityLabel(rows) {
+      let ones = 0;
+      for (const r of rows) if (r.y === 1) ones++;
+      return ones >= rows.length - ones ? 1 : 0;
+    }
+
+    function getCandidateThresholds(values) {
+      const unique = [...new Set(values)].sort((a, b) => a - b);
+      const thresholds = [];
+      for (let i = 0; i < unique.length - 1; i++) {
+        thresholds.push((unique[i] + unique[i + 1]) / 2);
+      }
+      return thresholds;
+    }
+
+    function bestSplit(rows) {
+      if (rows.length <= 1) return null;
+      const parentGini = gini(rows.map(r => r.y));
+      let best = null;
+      for (const feature of ['x1', 'x2']) {
+        const thresholds = getCandidateThresholds(rows.map(r => r[feature]));
+        for (const threshold of thresholds) {
+          const left = rows.filter(r => r[feature] <= threshold);
+          const right = rows.filter(r => r[feature] > threshold);
+          if (!left.length || !right.length) continue;
+          const weighted = (left.length / rows.length) * gini(left.map(r => r.y)) +
+                           (right.length / rows.length) * gini(right.map(r => r.y));
+          const gain = parentGini - weighted;
+          if (!best || gain > best.gain) {
+            best = { feature, threshold, gain, left, right };
+          }
+        }
+      }
+      return best;
+    }
+
+    function buildTree(rows, maxDepth, depth = 0, path = []) {
+      const node = {
+        id: path.length ? path.join('-') : 'root',
+        depth,
+        rows,
+        prediction: majorityLabel(rows),
+        impurity: gini(rows.map(r => r.y)),
+        split: null,
+        left: null,
+        right: null,
+        path
+      };
+
+      const labels = new Set(rows.map(r => r.y));
+      if (depth >= maxDepth || labels.size === 1 || rows.length < 2) return node;
+
+      const split = bestSplit(rows);
+      if (!split || split.gain <= 1e-8) return node;
+
+      node.split = {
+        feature: split.feature,
+        threshold: split.threshold,
+        gain: split.gain
+      };
+      node.left = buildTree(split.left, maxDepth, depth + 1, path.concat('L'));
+      node.right = buildTree(split.right, maxDepth, depth + 1, path.concat('R'));
+      return node;
+    }
+
+    function collectSteps(node, steps = []) {
+      if (!node) return steps;
+      steps.push(node);
+      if (node.left) collectSteps(node.left, steps);
+      if (node.right) collectSteps(node.right, steps);
+      return steps;
+    }
+
+    function getNodeRegions(node, bounds, map = {}) {
+      if (!node) return map;
+      map[node.id] = bounds;
+      if (node.split) {
+        if (node.split.feature === 'x1') {
+          getNodeRegions(node.left, {
+            minX: bounds.minX,
+            maxX: node.split.threshold,
+            minY: bounds.minY,
+            maxY: bounds.maxY
+          }, map);
+          getNodeRegions(node.right, {
+            minX: node.split.threshold,
+            maxX: bounds.maxX,
+            minY: bounds.minY,
+            maxY: bounds.maxY
+          }, map);
+        } else {
+          getNodeRegions(node.left, {
+            minX: bounds.minX,
+            maxX: bounds.maxX,
+            minY: bounds.minY,
+            maxY: node.split.threshold
+          }, map);
+          getNodeRegions(node.right, {
+            minX: bounds.minX,
+            maxX: bounds.maxX,
+            minY: node.split.threshold,
+            maxY: bounds.maxY
+          }, map);
+        }
+      }
+      return map;
+    }
+
+    function collectAllSplitNodes(node, acc = []) {
+      if (!node) return acc;
+      if (node.split) acc.push(node);
+      if (node.left) collectAllSplitNodes(node.left, acc);
+      if (node.right) collectAllSplitNodes(node.right, acc);
+      return acc;
+    }
+
+    function collectLeafRegions(node, region, acc = []) {
+      if (!node) return acc;
+      if (!node.split || !node.left || !node.right) {
+        acc.push({ node, region });
+        return acc;
+      }
+
+      if (node.split.feature === 'x1') {
+        collectLeafRegions(node.left, {
+          minX: region.minX,
+          maxX: node.split.threshold,
+          minY: region.minY,
+          maxY: region.maxY
+        }, acc);
+        collectLeafRegions(node.right, {
+          minX: node.split.threshold,
+          maxX: region.maxX,
+          minY: region.minY,
+          maxY: region.maxY
+        }, acc);
+      } else {
+        collectLeafRegions(node.left, {
+          minX: region.minX,
+          maxX: region.maxX,
+          minY: region.minY,
+          maxY: node.split.threshold
+        }, acc);
+        collectLeafRegions(node.right, {
+          minX: region.minX,
+          maxX: region.maxX,
+          minY: node.split.threshold,
+          maxY: region.maxY
+        }, acc);
+      }
+      return acc;
+    }
+
+    function regionsShareBoundary(a, b, eps = 1e-9) {
+      if (Math.abs(a.maxX - b.minX) < eps || Math.abs(b.maxX - a.minX) < eps) {
+        const y1 = Math.max(a.minY, b.minY);
+        const y2 = Math.min(a.maxY, b.maxY);
+        if (y2 > y1 + eps) {
+          return { type: 'vertical', x: Math.abs(a.maxX - b.minX) < eps ? a.maxX : b.maxX, y1, y2 };
+        }
+      }
+      if (Math.abs(a.maxY - b.minY) < eps || Math.abs(b.maxY - a.minY) < eps) {
+        const x1 = Math.max(a.minX, b.minX);
+        const x2 = Math.min(a.maxX, b.maxX);
+        if (x2 > x1 + eps) {
+          return { type: 'horizontal', y: Math.abs(a.maxY - b.minY) < eps ? a.maxY : b.maxY, x1, x2 };
+        }
+      }
+      return null;
+    }
+
+    function collectFinalLeaves(node, region, acc = []) {
+      if (!node) return acc;
+      if (!node.split || !node.left || !node.right) {
+        acc.push({ prediction: node.prediction, region });
+        return acc;
+      }
+
+      if (node.split.feature === 'x1') {
+        collectFinalLeaves(node.left, {
+          minX: region.minX,
+          maxX: node.split.threshold,
+          minY: region.minY,
+          maxY: region.maxY
+        }, acc);
+        collectFinalLeaves(node.right, {
+          minX: node.split.threshold,
+          maxX: region.maxX,
+          minY: region.minY,
+          maxY: region.maxY
+        }, acc);
+      } else {
+        collectFinalLeaves(node.left, {
+          minX: region.minX,
+          maxX: region.maxX,
+          minY: region.minY,
+          maxY: node.split.threshold
+        }, acc);
+        collectFinalLeaves(node.right, {
+          minX: region.minX,
+          maxX: region.maxX,
+          minY: node.split.threshold,
+          maxY: region.maxY
+        }, acc);
+      }
+      return acc;
+    }
+
+    function sharedBoundarySegment(a, b, eps = 1e-9) {
+      if (Math.abs(a.maxX - b.minX) < eps || Math.abs(b.maxX - a.minX) < eps) {
+        const y1 = Math.max(a.minY, b.minY);
+        const y2 = Math.min(a.maxY, b.maxY);
+        if (y2 - y1 > eps) {
+          return {
+            type: 'vertical',
+            x: Math.abs(a.maxX - b.minX) < eps ? a.maxX : b.maxX,
+            y1,
+            y2
+          };
+        }
+      }
+
+      if (Math.abs(a.maxY - b.minY) < eps || Math.abs(b.maxY - a.minY) < eps) {
+        const x1 = Math.max(a.minX, b.minX);
+        const x2 = Math.min(a.maxX, b.maxX);
+        if (x2 - x1 > eps) {
+          return {
+            type: 'horizontal',
+            y: Math.abs(a.maxY - b.minY) < eps ? a.maxY : b.maxY,
+            x1,
+            x2
+          };
+        }
+      }
+
+      return null;
+    }
+
+    function mergeDecisionSegments(segments, eps = 1e-9) {
+      const merged = segments.map(s => ({ ...s }));
+      const samePos = (u, v) => Math.abs(u - v) < eps;
+
+      let changed = true;
+      while (changed) {
+        changed = false;
+        outer:
+        for (let i = 0; i < merged.length; i++) {
+          for (let j = i + 1; j < merged.length; j++) {
+            const a = merged[i];
+            const b = merged[j];
+            if (a.type !== b.type) continue;
+
+            if (a.type === 'vertical' && samePos(a.x, b.x)) {
+              const touches = !(a.y2 < b.y1 - eps || b.y2 < a.y1 - eps);
+              if (touches) {
+                a.y1 = Math.min(a.y1, b.y1);
+                a.y2 = Math.max(a.y2, b.y2);
+                merged.splice(j, 1);
+                changed = true;
+                break outer;
+              }
+            }
+
+            if (a.type === 'horizontal' && samePos(a.y, b.y)) {
+              const touches = !(a.x2 < b.x1 - eps || b.x2 < a.x1 - eps);
+              if (touches) {
+                a.x1 = Math.min(a.x1, b.x1);
+                a.x2 = Math.max(a.x2, b.x2);
+                merged.splice(j, 1);
+                changed = true;
+                break outer;
+              }
+            }
+          }
+        }
+      }
+
+      return merged;
+    }
+
+    function computeFinalDecisionBoundarySegments(tree, fullRegion) {
+      const leaves = collectFinalLeaves(tree, fullRegion, []);
+      const raw = [];
+
+      for (let i = 0; i < leaves.length; i++) {
+        for (let j = i + 1; j < leaves.length; j++) {
+          if (leaves[i].prediction === leaves[j].prediction) continue;
+          const seg = sharedBoundarySegment(leaves[i].region, leaves[j].region);
+          if (seg) raw.push(seg);
+        }
+      }
+
+      function isTerminal(node) {
+        return !node || !node.split || !node.left || !node.right;
+      }
+
+      function addFinalSiblingSplits(node, region) {
+        if (!node || !node.split || !node.left || !node.right) return;
+
+        const leftTerminal = isTerminal(node.left);
+        const rightTerminal = isTerminal(node.right);
+
+        if (leftTerminal && rightTerminal) {
+          if (node.split.feature === 'x1') {
+            raw.push({
+              type: 'vertical',
+              x: node.split.threshold,
+              y1: region.minY,
+              y2: region.maxY
+            });
+          } else {
+            raw.push({
+              type: 'horizontal',
+              y: node.split.threshold,
+              x1: region.minX,
+              x2: region.maxX
+            });
+          }
+        }
+
+        if (node.split.feature === 'x1') {
+          addFinalSiblingSplits(node.left, {
+            minX: region.minX,
+            maxX: node.split.threshold,
+            minY: region.minY,
+            maxY: region.maxY
+          });
+          addFinalSiblingSplits(node.right, {
+            minX: node.split.threshold,
+            maxX: region.maxX,
+            minY: region.minY,
+            maxY: region.maxY
+          });
+        } else {
+          addFinalSiblingSplits(node.left, {
+            minX: region.minX,
+            maxX: region.maxX,
+            minY: region.minY,
+            maxY: node.split.threshold
+          });
+          addFinalSiblingSplits(node.right, {
+            minX: region.minX,
+            maxX: region.maxX,
+            minY: node.split.threshold,
+            maxY: region.maxY
+          });
+        }
+      }
+
+      addFinalSiblingSplits(tree, fullRegion);
+      return mergeDecisionSegments(raw);
+    }
+
+    function classifyPoint(point, node, revealedIds) {
+      let current = node;
+      let lastDirection = null; // 'left' or 'right'
+
+      while (current) {
+        if (!revealedIds.has(current.id) || !current.split) break;
+
+        if (point[current.split.feature] <= current.split.threshold) {
+          lastDirection = 'left';
+          current = current.left;
+        } else {
+          lastDirection = 'right';
+          current = current.right;
+        }
+      }
+
+      return lastDirection;
+    }
+
+    function getRanges(rows) {
+      const xs = rows.map(r => r.x1);
+      const ys = rows.map(r => r.x2);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      const padX = (maxX - minX) * 0.08 || 0.1;
+      const padY = (maxY - minY) * 0.08 || 0.1;
+      return { minX: minX - padX, maxX: maxX + padX, minY: minY - padY, maxY: maxY + padY };
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, plot.width, plot.height);
+      if (!state.rows.length || !state.tree) return;
+
+      const margin = 46;
+      const ranges = getRanges(state.rows);
+      const xScale = x => margin + ((x - ranges.minX) / (ranges.maxX - ranges.minX)) * (plot.width - 2 * margin);
+      const yScale = y => plot.height - margin - ((y - ranges.minY) / (ranges.maxY - ranges.minY)) * (plot.height - 2 * margin);
+      const revealedSplitNodes = state.sequence.slice(1, state.currentStep + 1);
+      const revealedIds = new Set(revealedSplitNodes.map(s => s.id));
+      const nodeRegions = getNodeRegions(state.tree, ranges, {});
+      const shouldShowBoundary = state.currentStep > 0;
+
+      if (shouldShowBoundary) {
+        const cols = 46;
+        const rowsGrid = 36;
+        const w = (plot.width - 2 * margin) / cols;
+        const h = (plot.height - 2 * margin) / rowsGrid;
+        for (let i = 0; i < cols; i++) {
+          for (let j = 0; j < rowsGrid; j++) {
+            const gx = ranges.minX + (i / (cols - 1)) * (ranges.maxX - ranges.minX);
+            const gy = ranges.minY + (j / (rowsGrid - 1)) * (ranges.maxY - ranges.minY);
+            const pred = classifyPoint({ x1: gx, x2: gy }, state.tree, revealedIds);
+            if (pred === 'left') {
+              ctx.fillStyle = 'rgba(37, 99, 235, 0.14)';
+            } else if (pred === 'right') {
+              ctx.fillStyle = 'rgba(236, 72, 153, 0.14)';
+            } else {
+              ctx.fillStyle = 'transparent';
+            }
+            ctx.fillRect(xScale(gx) - w / 2, yScale(gy) - h / 2, w + 1, h + 1);
+          }
+        }
+      }
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+      ctx.lineWidth = 1;
+      for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+        const x = margin + t * (plot.width - 2 * margin);
+        const y = margin + t * (plot.height - 2 * margin);
+        ctx.beginPath(); ctx.moveTo(x, margin); ctx.lineTo(x, plot.height - margin); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(plot.width - margin, y); ctx.stroke();
+      }
+
+      ctx.strokeStyle = '#111827';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(margin, margin); ctx.lineTo(margin, plot.height - margin); ctx.lineTo(plot.width - margin, plot.height - margin); ctx.stroke();
+
+      if (shouldShowBoundary) {
+        ctx.setLineDash([7, 6]);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#111827';
+        for (const node of revealedSplitNodes) {
+          const split = node.split;
+          const region = nodeRegions[node.id];
+          if (!region || !split) continue;
+          ctx.beginPath();
+          if (split.feature === 'x1') {
+            const x = xScale(split.threshold);
+            ctx.moveTo(x, yScale(region.minY));
+            ctx.lineTo(x, yScale(region.maxY));
+          } else {
+            const y = yScale(split.threshold);
+            ctx.moveTo(xScale(region.minX), y);
+            ctx.lineTo(xScale(region.maxX), y);
+          }
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
+
+      if (state.showFullBoundary && state.tree) {
+        const finalSegments = computeFinalDecisionBoundarySegments(state.tree, ranges);
+        ctx.setLineDash([]);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#16a34a';
+        for (const seg of finalSegments) {
+          ctx.beginPath();
+          if (seg.type === 'vertical') {
+            ctx.moveTo(xScale(seg.x), yScale(seg.y1));
+            ctx.lineTo(xScale(seg.x), yScale(seg.y2));
+          } else {
+            ctx.moveTo(xScale(seg.x1), yScale(seg.y));
+            ctx.lineTo(xScale(seg.x2), yScale(seg.y));
+          }
+          ctx.stroke();
+        }
+      }
+
+      for (const p of state.rows) {
+        ctx.beginPath();
+        ctx.arc(xScale(p.x1), yScale(p.x2), 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = p.y === 1 ? '#2563eb' : '#dc2626';
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'white';
+        ctx.stroke();
+      }
+
+      const tickCount = 5;
+      ctx.fillStyle = '#111827';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (let i = 0; i < tickCount; i++) {
+        const t = i / (tickCount - 1);
+        const xVal = ranges.minX + t * (ranges.maxX - ranges.minX);
+        const x = xScale(xVal);
+        ctx.beginPath();
+        ctx.moveTo(x, plot.height - margin);
+        ctx.lineTo(x, plot.height - margin + 6);
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillText(xVal.toFixed(1), x, plot.height - margin + 8);
+      }
+
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < tickCount; i++) {
+        const t = i / (tickCount - 1);
+        const yVal = ranges.minY + t * (ranges.maxY - ranges.minY);
+        const y = yScale(yVal);
+        ctx.beginPath();
+        ctx.moveTo(margin - 6, y);
+        ctx.lineTo(margin, y);
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillText(yVal.toFixed(1), margin - 8, y);
+      }
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = '15px Arial';
+      ctx.fillText('Feature x1', plot.width / 2, plot.height - 12);
+      ctx.save();
+      ctx.translate(18, plot.height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Feature x2', 0, 0);
+      ctx.restore();
+    }
+
+    function renderNodeInfo() {
+      if (!state.sequence.length) {
+        currentNode.innerHTML = '<div class="muted">No valid rows found.</div>';
+        return;
+      }
+      const cur = state.sequence[Math.min(state.currentStep, state.sequence.length - 1)];
+      let html = '';
+      html += `<span class="badge">${cur.id === 'root' ? 'root' : cur.id}</span>`;
+      html += `<span class="badge">depth ${cur.depth}</span>`;
+      html += `<span class="badge">samples ${cur.rows.length}</span>`;
+      html += `<span class="badge">gini ${cur.impurity.toFixed(3)}</span>`;
+      html += `<span class="badge">predict ${cur.prediction}</span>`;
+      html += '<div style="margin-top:10px; line-height:1.6; font-size:14px;">';
+      if (state.currentStep === 0) {
+        html += '<span class="muted">Root state: points only, with no split line and no background shading yet.</span>';
+      } else if (cur.split) {
+        html += `Split on <strong>${cur.split.feature}</strong> at <strong>${cur.split.threshold.toFixed(3)}</strong><br>`;
+        html += `Construction step: <strong>${state.currentStep}</strong><br>`;
+        html += `Gini gain: <strong>${cur.split.gain.toFixed(3)}</strong>`;
+      } else {
+        html += '<span class="muted">This node becomes a leaf. No further useful split is found.</span>';
+      }
+      html += '</div>';
+      currentNode.innerHTML = html;
+    }
+
+    function renderStepList() {
+      if (!state.tree) {
+        stepList.innerHTML = '<div class="muted">Load a CSV file to build the tree.</div>';
+        return;
+      }
+
+      const revealedSplitIds = new Set(state.sequence.slice(1, state.currentStep + 1).map(n => n.id));
+      const activeNode = state.sequence[Math.min(state.currentStep, Math.max(state.sequence.length - 1, 0))];
+
+      function renderNode(node, parentSplit, branchLabel, isRoot = false) {
+        const visible = isRoot || (parentSplit && revealedSplitIds.has(parentSplit.nodeId));
+        if (!visible) return '';
+
+        const active = activeNode && activeNode.id === node.id;
+        const isTerminal = node.impurity <= 1e-8 || node.depth >= state.maxDepth || !node.split;
+        const clickable = isRoot ? state.sequence.length > 1 : !isTerminal;
+        const branchClass = branchLabel === 'Left' ? 'branch-left' : branchLabel === 'Right' ? 'branch-right' : '';
+        const disabledClass = clickable ? '' : 'disabled';
+        let html = `<div class="tree-node ${isRoot ? 'root' : ''}">`;
+        html += `<div class="tree-label ${branchClass} ${active ? 'active' : ''} ${disabledClass}" ${clickable ? `data-node-id="${node.id}"` : ''}>`;
+
+        if (isRoot) {
+          html += `<strong>Root</strong><br>`;
+          html += `<span class="muted">samples=${node.rows.length}, gini=${node.impurity.toFixed(3)}</span>`;
+        } else {
+          const cond = branchLabel === 'Left'
+            ? `${parentSplit.feature} <= ${parentSplit.threshold.toFixed(3)}`
+            : `${parentSplit.feature} > ${parentSplit.threshold.toFixed(3)}`;
+          html += `<span class="branch-tag">${branchLabel}</span>`;
+          html += `<strong>${cond}</strong><br>`;
+          html += `<span class="muted">samples=${node.rows.length}, gini=${node.impurity.toFixed(3)}</span>`;
+        }
+
+        html += `</div>`;
+
+        if (node.left) {
+          html += `<div class="tree-children">`;
+          html += renderNode(node.left, node.split ? { ...node.split, nodeId: node.id } : null, 'Left');
+          html += renderNode(node.right, node.split ? { ...node.split, nodeId: node.id } : null, 'Right');
+          html += `</div>`;
+        }
+
+        html += `</div>`;
+        return html;
+      }
+
+      stepList.innerHTML = renderNode(state.tree, null, '', true);
+      stepList.querySelectorAll('[data-node-id]').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.getAttribute('data-node-id');
+          stopPlaying();
+          if (id === 'root') {
+            if (state.sequence.length > 1) state.currentStep = 1;
+            syncUI();
+            return;
+          }
+          const idx = state.sequence.findIndex(n => n.id === id);
+          if (idx >= 1) {
+            state.currentStep = idx;
+            syncUI();
+          }
+        });
+      });
+    }
+
+    function rebuild() {
+      state.rows = parseCsv(csvText.value);
+      state.tree = state.rows.length ? buildTree(state.rows, state.maxDepth) : null;
+      state.steps = state.tree ? collectSteps(state.tree, []) : [];
+      state.sequence = state.tree ? [state.tree].concat(state.steps.filter(node => node.split)) : [];
+      state.currentStep = 0;
+      state.showFullBoundary = false;
+      stopPlaying();
+      syncUI();
+    }
+
+    function syncUI() {
+      depthValue.textContent = state.maxDepth;
+      stepSlider.max = Math.max(state.sequence.length - 1, 0);
+      stepSlider.value = Math.min(state.currentStep, Math.max(state.sequence.length - 1, 0));
+      stepValue.textContent = state.sequence.length ? `${state.currentStep} / ${Math.max(state.sequence.length - 1, 0)}` : '0 / 0';
+      sampleCount.textContent = state.rows.length;
+      classList.textContent = state.rows.length ? [...new Set(state.rows.map(r => r.y))].join(', ') : '-';
+      playBtn.textContent = state.playing ? 'Pause build' : 'Play build';
+      prevBtn.disabled = state.currentStep <= 0;
+      nextBtn.disabled = state.currentStep >= Math.max(state.sequence.length - 1, 0);
+      fullBoundaryBtn.disabled = !state.tree || !state.rows.length;
+      fullBoundaryBtn.textContent = state.showFullBoundary ? 'Hide full decision boundary' : 'Plot full decision boundary';
+      renderNodeInfo();
+      renderStepList();
+      draw();
+    }
+
+    function stopPlaying() {
+      state.playing = false;
+      if (state.timer) {
+        clearInterval(state.timer);
+        state.timer = null;
+      }
+    }
+
+    function togglePlay() {
+      if (!state.sequence.length) return;
+      if (state.playing) {
+        stopPlaying();
+        syncUI();
+        return;
+      }
+      state.playing = true;
+      state.timer = setInterval(() => {
+        if (state.currentStep >= state.sequence.length - 1) {
+          stopPlaying();
+          syncUI();
+          return;
+        }
+        state.currentStep += 1;
+        syncUI();
+      }, 900);
+      syncUI();
+    }
+
+    playBtn.addEventListener('click', togglePlay);
+    prevBtn.addEventListener('click', () => {
+      stopPlaying();
+      state.currentStep = Math.max(0, state.currentStep - 1);
+      syncUI();
+    });
+    nextBtn.addEventListener('click', () => {
+      stopPlaying();
+      state.currentStep = Math.min(state.sequence.length - 1, state.currentStep + 1);
+      syncUI();
+    });
+    resetBtn.addEventListener('click', () => {
+      stopPlaying();
+      state.currentStep = 0;
+      syncUI();
+    });
+    fullBoundaryBtn.addEventListener('click', () => {
+      if (!state.tree || !state.rows.length) return;
+      state.showFullBoundary = !state.showFullBoundary;
+      fullBoundaryBtn.textContent = state.showFullBoundary ? 'Hide full decision boundary' : 'Plot full decision boundary';
+      draw();
+    });
+    depthSlider.addEventListener('input', () => {
+      state.maxDepth = Number(depthSlider.value);
+      rebuild();
+    });
+    stepSlider.addEventListener('input', () => {
+      stopPlaying();
+      state.currentStep = Number(stepSlider.value);
+      syncUI();
+    });
+    csvText.addEventListener('input', () => {});
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      csvText.value = text;
+      rebuild();
+    });
+
+    csvText.value = DEFAULT_CSV;
+    syncUI();
+  </script>
+</body>
+</html>
