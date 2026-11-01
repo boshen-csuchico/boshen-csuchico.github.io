@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   BST Performance Explorer
+  </title>
+  <style>
+   
+    :root {
+        font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+        color:#1e293b;
+        background:#f3f6fb
+    }
+    * {
+        box-sizing:border-box
+    }
+    body {
+        margin:0
+    }
+    .wrap {
+        max-width:1200px;
+        margin:auto;
+        padding:24px
+    }
+    .panel {
+        background:white;
+        border:1px solid #dce3ed;
+        border-radius:14px;
+        padding:18px;
+        margin:15px 0;
+        box-shadow:0 2px 7px #1b36560a
+    }
+    h1 {
+        margin:0;
+        font-size:27px
+    }
+    h2 {
+        font-size:18px;
+        margin:0 0 12px
+    }
+    p {
+        line-height:1.5
+    }
+    small,.muted {
+        color:#64748b
+    }
+    .controls,.legend,.tabs,.stats {
+        display:flex;
+        gap:12px;
+        flex-wrap:wrap;
+        align-items:center
+    }
+    .controls {
+        margin-bottom:12px
+    }
+    button,select,input[type=number] {
+        background:white;
+        border:1px solid #cbd5e1;
+        border-radius:8px;
+        padding:8px 11px;
+        color:#1e293b;
+        font:inherit
+    }
+    button {
+        cursor:pointer
+    }
+    button.active {
+        background:#dbeafe;
+        border-color:#2563eb
+    }
+    button:hover {
+        border-color:#2563eb
+    }
+    input[type=range] {
+        width:100%;
+        accent-color:#2563eb
+    }
+    input[type=checkbox] {
+        accent-color:#2563eb
+    }
+    .legend label {
+        display:flex;
+        gap:6px;
+        align-items:center;
+        font-size:13px
+    }
+    .dot {
+        width:11px;
+        height:11px;
+        border-radius:3px;
+        display:inline-block
+    }
+    .stats {
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:10px
+    }
+    .stat {
+        background:#f8fafc;
+        border-radius:10px;
+        padding:12px
+    }
+    .stat b {
+        font-size:24px;
+        display:block;
+        margin-top:6px
+    }
+    .stat small {
+        font-size:12px
+    }
+    .chart {
+        display:block;
+        width:100%;
+        height:auto;
+        min-height:250px
+    }
+    .chart text {
+        font-size:11px;
+        fill:#64748b
+    }
+    .chart .grid {
+        stroke:#e2e8f0
+    }
+    .treebox {
+        overflow:auto;
+        max-height:370px;
+        min-height:190px;
+        border:1px dashed #dce3ed;
+        border-radius:9px
+    }
+    .treebox svg {
+        display:block;
+        margin:auto
+    }
+    .note {
+        border-left:3px solid #2563eb;
+        background:#f1f5ff;
+        padding:10px 12px;
+        border-radius:0 8px 8px 0;
+        font-size:14px
+    }
+    .row {
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:16px
+    }
+    .key {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        font-size:12px;
+        margin-right:12px
+    }
+    .linekey {
+        width:22px;
+        border-top:3px solid
+    }
+    .linekey.dashed {
+        border-top-style:dashed
+    }
+    .sequence {
+        overflow-wrap:anywhere;
+        font-size:13px;
+        color:#475569
+    }
+    .tooltip {
+        position:fixed;
+        display:none;
+        pointer-events:none;
+        background:white;
+        border:1px solid #cbd5e1;
+        box-shadow:0 4px 20px #0002;
+        padding:8px 10px;
+        border-radius:8px;
+        font-size:12px;
+        z-index:100;
+        max-width:250px
+    }
+    .help {
+        font-size:13px;
+        color:#475569
+    }
+    footer {
+        padding:20px 0;
+        color:#64748b;
+        font-size:12px
+    }
+    @media(max-width:750px) {
+        .row {
+            grid-template-columns:1fr
+        }
+        .stats {
+            grid-template-columns:repeat(2,1fr)
+        }
+        .wrap {
+            padding:12px
+        }
+    }
+  
+  </style>
+ </head>
+ <body>
+  <main class="wrap">
+   <h1>
+    Binary Search Tree · Performance Explorer
+   </h1>
+   <p class="muted">
+    Construct BSTs with four insertion orders, investigate their internal metrics, and compare depth distributions across random trials.
+   </p>
+   <section class="panel">
+    <h2>
+     Experiment controls
+    </h2>
+    <div class="controls">
+     <label>
+      Number of keys
+      <select id="size">
+       <option>
+        7
+       </option>
+       <option selected="">
+        15
+       </option>
+       <option>
+        31
+       </option>
+       <option>
+        63
+       </option>
+       <option>
+        127
+       </option>
+       <option>
+        255
+       </option>
+       <option>
+        511
+       </option>
+      </select>
+     </label>
+     <label>
+      Random seed
+      <input id="seed" max="999999" min="0" style="width:105px" type="number" value="42"/>
+     </label>
+     <button id="reset">
+      Reset to 0
+     </button>
+     <button id="play">
+      ▶ Play insertion
+     </button>
+     <button id="all">
+      Insert all
+     </button>
+    </div>
+    <div class="controls">
+     <strong id="stepLabel">
+      15 / 15 inserted
+     </strong>
+     <span class="muted" id="nextKey">
+     </span>
+    </div>
+    <input id="step" max="15" min="0" type="range" value="15"/>
+    <p class="help">
+     Toggle strategies to control which lines and histogram bars are visible. The selected tree is shown separately below.
+    </p>
+    <div class="legend" id="legend">
+    </div>
+   </section>
+   <section class="panel">
+    <div class="controls" style="justify-content:space-between">
+     <h2>
+      1. Actual BST structure
+     </h2>
+     <label>
+      Display tree
+      <select id="treeType">
+      </select>
+     </label>
+    </div>
+    <div class="sequence">
+     <strong>
+      Inserted keys:
+     </strong>
+     <span id="sequence">
+     </span>
+    </div>
+    <div class="treebox" id="tree">
+    </div>
+    <p class="note" id="treeNote">
+    </p>
+   </section>
+   <section class="panel">
+    <h2>
+     2. Performance during insertion
+    </h2>
+    <div class="tabs" id="metricTabs">
+     <button class="active" data-m="height">
+      Tree height
+     </button>
+     <button data-m="depth">
+      Average node depth
+     </button>
+     <button data-m="search">
+      Average successful search comparisons
+     </button>
+    </div>
+    <div class="stats" id="stats" style="margin-top:12px">
+    </div>
+    <svg aria-label="BST performance curves" class="chart" id="performance" viewbox="0 0 1000 355">
+    </svg>
+    <p class="help" id="metricNote">
+    </p>
+   </section>
+   <section class="panel">
+    <h2>
+     3. Node-depth distribution
+    </h2>
+    <div class="controls">
+     <label>
+      Histogram
+      <select id="histMode">
+       <option value="compare">
+        Compare enabled strategies
+       </option>
+       <option value="single">
+        Single strategy
+       </option>
+      </select>
+     </label>
+     <label>
+      Single strategy
+      <select id="histType">
+      </select>
+     </label>
+     <label>
+      Random trials
+      <select id="trials">
+       <option value="1">
+        1 trial (seeded)
+       </option>
+       <option value="10">
+        10 trials (average)
+       </option>
+       <option selected="" value="100">
+        100 trials (average)
+       </option>
+      </select>
+     </label>
+    </div>
+    <p class="help">
+     Random trials applies only to the Random strategy. The averaged histogram shows the mean number of nodes at each depth across independently shuffled insertion orders, each with the same number of inserted keys. Vertical markers indicate average node depth and maximum depth (tree height). For averaged trials, the height marker shows the mean of trial heights, which may be fractional.
+    </p>
+    <svg aria-label="Node depth distribution histogram" class="chart" id="histogram" viewbox="0 0 1000 355">
+    </svg>
+    <div class="controls" id="markerLegend">
+     <span class="key">
+      <span class="linekey" style="border-color:#dc2626">
+      </span>
+      Average node depth
+     </span>
+     <span class="key">
+      <span class="linekey dashed" style="border-color:#0f172a">
+      </span>
+      Tree height
+     </span>
+    </div>
+    <p class="note" id="histNote">
+    </p>
+   </section>
+   <footer>
+    Definitions: root depth = 0; height = maximum depth (empty tree = −1); successful search comparisons = nodes visited. The four sequences use the same distinct keys 1…N. Random trial averages are empirical estimates, not fitted normal distributions. This self-contained file runs locally without external libraries or network access.
+   </footer>
+  </main>
+  <div class="tooltip" id="tooltip">
+  </div>
+  <script>
+   
+    'use strict';
+    const $ = id => document.getElementById(id), names = ['Ascending', 'Semi-ascending (zigzag)', 'Random', 'Balanced'], colors = ['#d97706', '#9333ea', '#0284c7', '#16a34a'];
+    const S = { n: 15, k: 15, seed: 42, tree: 1, hist: 2, metric: 'height', mode: 'compare', trials: 100, visible: [true, true, true, true], timer: null };
+    function rng(seed) { let a = (seed >>> 0) || 0x9e3779b9; return () => { a += 0x6d2b79f5; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+    function shuffle(n, seed) { const a = Array.from({ length: n }, (_, i) => i + 1), r = rng(seed); for (let i = n - 1; i > 0; i--) {
+        let j = Math.floor(r() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    } return a; }
+    function balanced(n) { let a = []; function visit(lo, hi) { if (lo > hi)
+        return; let m = Math.floor((lo + hi) / 2); a.push(m); visit(lo, m - 1); visit(m + 1, hi); } visit(1, n); return a; }
+    // Alternating extreme values creates a true zigzag chain: 1,N,2,N-1,3,N-2,...
+    // Every new node attaches below the previous node and extends the height by exactly 1.
+    function zigzag(n) { let a = [], lo = 1, hi = n; while (lo <= hi) {
+        a.push(lo++);
+        if (lo <= hi)
+            a.push(hi--);
+    } return a; }
+    function sequences(n, seed) { return [Array.from({ length: n }, (_, i) => i + 1), zigzag(n), shuffle(n, seed), balanced(n)]; }
+    function insert(t, k) { if (!t)
+        return { key: k, left: null, right: null }; let p = t; while (true) {
+        let side = k < p.key ? 'left' : 'right';
+        if (!p[side]) {
+            p[side] = { key: k, left: null, right: null };
+            return t;
+        }
+        p = p[side];
+    } }
+    function compute(t) { if (!t)
+        return { height: -1, depth: 0, search: 0, counts: [], size: 0 }; let stack = [[t, 0]], count = 0, sum = 0, height = 0, levels = []; while (stack.length) {
+        let [node, d] = stack.pop();
+        count++;
+        sum += d;
+        height = Math.max(height, d);
+        levels[d] = (levels[d] || 0) + 1;
+        if (node.left)
+            stack.push([node.left, d + 1]);
+        if (node.right)
+            stack.push([node.right, d + 1]);
+    } let avg = sum / count; return { height, depth: avg, search: avg + 1, counts: levels.map(x => x || 0), size: count }; }
+    function buildSeries(seq) { let t = null, out = [{ height: -1, depth: 0, search: 0, counts: [], size: 0 }]; for (let key of seq) {
+        t = insert(t, key);
+        out.push(compute(t));
+    } return out; }
+    let seq = [], series = [], cache = new Map();
+    function rebuild() { seq = sequences(S.n, S.seed); series = seq.map(buildSeries); cache.clear(); }
+    function trialStats(k, trials) { let cacheKey = [S.n, S.seed, k, trials].join(':'); if (cache.has(cacheKey))
+        return cache.get(cacheKey); if (k === 0)
+        return { height: -1, depth: 0, search: 0, counts: [], size: 0 }; if (trials === 1)
+        return series[2][k]; let counts = [], height = 0, depth = 0, search = 0; for (let t = 0; t < trials; t++) {
+        let order = shuffle(S.n, (S.seed + Math.imul(t, 2654435761)) >>> 0), tree = null;
+        for (let i = 0; i < k; i++)
+            tree = insert(tree, order[i]);
+        let m = compute(tree);
+        height += m.height;
+        depth += m.depth;
+        search += m.search;
+        m.counts.forEach((v, i) => counts[i] = (counts[i] || 0) + v);
+    } let m = { height: height / trials, depth: depth / trials, search: search / trials, counts: counts.map(x => x / trials), size: k }; cache.set(cacheKey, m); return m; }
+    function setup() { names.forEach((name, j) => { for (let id of ['treeType', 'histType']) {
+        let o = document.createElement('option');
+        o.value = j;
+        o.textContent = name;
+        $(id).append(o);
+    } let label = document.createElement('label'), cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.onchange = () => { S.visible[j] = cb.checked; if (!S.visible.some(Boolean)) {
+        S.visible[j] = true;
+        cb.checked = true;
+    } render(); }; let sw = document.createElement('span'); sw.className = 'dot'; sw.style.background = colors[j]; label.append(cb, sw, document.createTextNode(name)); $('legend').append(label); }); $('treeType').value = S.tree; $('histType').value = S.hist; }
+    function stop() { if (S.timer)
+        clearInterval(S.timer); S.timer = null; $('play').textContent = '▶ Play insertion'; }
+    function renderTree() {
+        let t = null;
+        for (let i = 0; i < S.k; i++)
+            t = insert(t, seq[S.tree][i]);
+        $('sequence').textContent = seq[S.tree].slice(0, S.k).join(', ') || 'No keys inserted yet';
+        if (!t) {
+            $('tree').innerHTML = '<p class="muted" style="padding:35px;text-align:center">Insert a key to see the tree.</p>';
+            return;
+        }
+        let nodes = [], index = 0;
+        function inorder(p, d) { if (!p)
+            return; inorder(p.left, d + 1); nodes.push({ p, x: index++, d }); inorder(p.right, d + 1); }
+        inorder(t, 0);
+        let maxD = series[S.tree][S.k].height, w = Math.max(450, S.k * 38 + 48), h = Math.max(185, (maxD + 1) * 56 + 40), by = new Map(nodes.map(n => [n.p.key, n]));
+        let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">';
+        for (let n of nodes) {
+            for (let child of [n.p.left, n.p.right])
+                if (child) {
+                    let v = by.get(child.key);
+                    svg += '<line x1="' + (n.x * 38 + 30) + '" y1="' + (n.d * 56 + 28) + '" x2="' + (v.x * 38 + 30) + '" y2="' + (v.d * 56 + 28) + '" stroke="#94a3b8" stroke-width="1.5"/>';
+                }
+        }
+        for (let n of nodes) {
+            let recent = n.p.key === seq[S.tree][S.k - 1];
+            svg += '<circle cx="' + (n.x * 38 + 30) + '" cy="' + (n.d * 56 + 28) + '" r="16" fill="' + (recent ? '#dbeafe' : '#fff') + '" stroke="' + colors[S.tree] + '" stroke-width="' + (recent ? 3 : 1.5) + '"/><text x="' + (n.x * 38 + 30) + '" y="' + (n.d * 56 + 32) + '" font-size="12" fill="#1e293b" text-anchor="middle">' + n.p.key + '</text>';
+        }
+        svg += '</svg>';
+        $('tree').innerHTML = svg;
+        $('treeNote').textContent = ['Ascending: every new key extends the right spine.', 'Semi-ascending zigzag: alternating low and high remaining keys creates a single chain whose direction alternates right, left, right, left. Every insertion increases height by one.', 'Random: shuffled insertion creates uneven subtrees; changing the seed changes the shape.', 'Balanced: recursively insert the midpoint first to obtain minimum possible height.'][S.tree];
+    }
+    function axes(svg, maxX, maxY, xTitle, yTitle, xTicks = 5, top = 52, bottom = 55) { let W = 1000, H = 355, L = 73, R = 25, T = top, B = bottom, pw = W - L - R, ph = H - T - B; let out = ''; for (let i = 0; i <= 5; i++) {
+        let y = T + ph - i * ph / 5, v = maxY * i / 5;
+        out += '<line class="grid" x1="' + L + '" x2="' + (L + pw) + '" y1="' + y + '" y2="' + y + '"/><text x="' + (L - 9) + '" y="' + (y + 4) + '" text-anchor="end">' + (maxY >= 30 ? v.toFixed(0) : v.toFixed(1)) + '</text>';
+    } for (let i = 0; i <= xTicks; i++) {
+        let x = L + pw * i / xTicks;
+        out += '<text x="' + x + '" y="' + (H - B + 19) + '" text-anchor="middle">' + (maxX * i / xTicks).toFixed(maxX < 10 ? 1 : 0) + '</text>';
+    } out += '<text x="' + (L + pw / 2) + '" y="' + (H - 7) + '" text-anchor="middle">' + xTitle + '</text><text transform="translate(17 ' + (T + ph / 2) + ') rotate(-90)" text-anchor="middle">' + yTitle + '</text>'; svg.innerHTML = out; return { L, T, pw, ph, W, H, B }; }
+    function fmt(x) { return Number(x).toFixed(2); }
+    function performanceLegend() { let x = 76, y = 18, out = ''; for (let j = 0; j < 4; j++)
+        if (S.visible[j]) {
+            out += '<line x1="' + x + '" y1="' + y + '" x2="' + (x + 27) + '" y2="' + y + '" stroke="' + colors[j] + '" stroke-width="3" ' + (j === 1 ? 'stroke-dasharray="7 4"' : '') + '/>';
+            out += '<text x="' + (x + 33) + '" y="' + (y + 4) + '" fill="#334155">' + names[j] + '</text>';
+            x += j === 1 ? 206 : 155;
+        } return out; }
+    function histogramLegend(selected) { let widths = selected.map(j => j === 1 ? 175 : 125), total = widths.reduce((a, b) => a + b, 0), x = 970 - total, y = 18, out = ''; selected.forEach((j, i) => { out += '<rect x="' + x + '" y="' + (y - 8) + '" width="12" height="12" fill="' + colors[j] + '"/><text x="' + (x + 18) + '" y="' + (y + 3) + '" fill="#334155">' + names[j] + '</text>'; x += widths[i]; }); return out; }
+    function renderPerformance() { let m = series[S.tree][S.k], values = [['Height', m.height], ['Average node depth', fmt(m.depth)], ['Average search comparisons', fmt(m.search)], ['Nodes inserted', S.k]]; $('stats').innerHTML = values.map(([label, val]) => '<div class="stat"><small>' + label + '</small><b>' + val + '</b></div>').join(''); let key = S.metric, svg = $('performance'), maxY = 1; for (let j = 0; j < 4; j++)
+        if (S.visible[j])
+            for (let k = 1; k <= S.n; k++)
+                maxY = Math.max(maxY, series[j][k][key]); maxY *= 1.06; let a = axes(svg, S.n, maxY, 'Number of inserted keys', 'Metric value'), out = svg.innerHTML; out += performanceLegend(); for (let j = 0; j < 4; j++)
+        if (S.visible[j]) {
+            let points = [];
+            for (let k = 1; k <= S.n; k++)
+                points.push([a.L + a.pw * k / S.n, a.T + a.ph * (1 - series[j][k][key] / maxY)]);
+            out += '<polyline points="' + points.map(p => p.join(',')).join(' ') + '" fill="none" stroke="' + colors[j] + '" stroke-width="2.6" ' + (j === 1 ? 'stroke-dasharray="9 6"' : '') + ' stroke-linejoin="round"/>';
+            if (S.k) {
+                let p = points[S.k - 1];
+                out += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="5" fill="' + colors[j] + '" stroke="white" stroke-width="2"/>';
+            }
+        } let x = a.L + a.pw * S.k / S.n; out += '<line x1="' + x + '" x2="' + x + '" y1="' + a.T + '" y2="' + (a.T + a.ph) + '" stroke="#64748b" stroke-dasharray="5 5"/>'; svg.innerHTML = out; let descriptions = { height: 'Height is the maximum depth, not the number of nodes. The ascending and zigzag chains both have height N − 1.', depth: 'Average node depth measures the mean distance from the root to all existing nodes.', search: 'Average successful search comparisons = average node depth + 1 when each key is searched exactly once.' }; $('metricNote').textContent = descriptions[key]; svg.onmousemove = e => { let r = svg.getBoundingClientRect(), xx = (e.clientX - r.left) / r.width * a.W, k = Math.max(1, Math.min(S.n, Math.round((xx - a.L) / a.pw * S.n))); tooltip(e, 'After ' + k + ' insertions', names.map((n, j) => S.visible[j] ? '<span style="color:' + colors[j] + '">●</span> ' + n + ': ' + fmt(series[j][k][key]) : '').filter(Boolean).join('<br>')); }; svg.onmouseleave = hideTip; }
+    function renderHistogram() {
+        let selected = S.mode === 'single' ? [S.hist] : [0, 1, 2, 3].filter(j => S.visible[j]);
+        let metrics = selected.map(j => ({ j, m: j === 2 ? trialStats(S.k, S.trials) : series[j][S.k] }));
+        let maxDepth = Math.max(0, ...metrics.map(({ m }) => m.counts.length - 1)), maxY = Math.max(1, ...metrics.flatMap(({ m }) => m.counts));
+        let svg = $('histogram'), a = axes(svg, Math.max(maxDepth, 1), maxY * 1.12, 'Node depth', 'Number of nodes (or trial average)', Math.min(10, Math.max(1, maxDepth)), 55, 78);
+        let out = svg.innerHTML + histogramLegend(selected), groupW = a.pw / (maxDepth + 1), barW = Math.min(30, groupW * .84 / selected.length);
+        for (let { j, m } of metrics) {
+            let idx = selected.indexOf(j);
+            for (let d = 0; d <= maxDepth; d++) {
+                let v = m.counts[d] || 0, x = a.L + (d + .5) * groupW - selected.length * barW / 2 + idx * barW, y = a.T + a.ph * (1 - v / (maxY * 1.12));
+                out += '<rect x="' + x + '" y="' + y + '" width="' + Math.max(1, barW - 1) + '" height="' + Math.max(0, a.T + a.ph - y) + '" fill="' + colors[j] + '" opacity=".8"><title>' + names[j] + ' at depth ' + d + ': ' + fmt(v) + '</title></rect>';
+            }
+        }
+        // Marker positions refer to the selected single strategy, or the selected tree in comparison mode.
+        let reference = metrics.find(x => x.j === S.hist) || metrics[0];
+        if (reference && S.k) {
+            let m = reference.m;
+            for (let [v, col, dash] of [[m.depth, '#dc2626', ''], [m.height, '#0f172a', '6 4']]) {
+                let x = a.L + (v + .5) * groupW;
+                out += '<line x1="' + x + '" x2="' + x + '" y1="' + a.T + '" y2="' + (a.T + a.ph) + '" stroke="' + col + '" stroke-width="2.5" ' + (dash ? 'stroke-dasharray="' + dash + '"' : '') + '/>';
+                out += '<rect x="' + (Math.max(a.L + 22, Math.min(a.L + a.pw - 22, x)) - 21) + '" y="' + (a.T + a.ph + (dash ? 39 : 23)) + '" width="42" height="15" rx="3" fill="#ffffff" opacity=".95"/><text x="' + Math.max(a.L + 22, Math.min(a.L + a.pw - 22, x)) + '" y="' + (a.T + a.ph + (dash ? 50 : 34)) + '" fill="' + col + '" text-anchor="middle" font-weight="bold">' + fmt(v) + '</text>';
+            }
+        }
+        svg.innerHTML = out;
+        let referenceName = reference ? names[reference.j] : 'none';
+        $('histNote').textContent = S.k === 0 ? 'Insert nodes to see their depths.' : 'Markers refer to ' + referenceName + '. ' + (reference && reference.j === 2 && S.trials > 1 ? 'Random bars and markers are averaged across ' + S.trials + ' independent trials. ' : '') + 'The red solid marker is the mean depth; the dark dashed marker is the height. Their separation shows how the deepest node differs from a typical node.';
+        svg.onmousemove = e => { let r = svg.getBoundingClientRect(), xx = (e.clientX - r.left) / r.width * a.W, d = Math.max(0, Math.min(maxDepth, Math.floor((xx - a.L) / groupW))); tooltip(e, 'Depth ' + d, metrics.map(({ j, m }) => '<span style="color:' + colors[j] + '">●</span> ' + names[j] + ': ' + fmt(m.counts[d] || 0)).join('<br>')); };
+        svg.onmouseleave = hideTip;
+    }
+    function tooltip(e, title, body) { let t = $('tooltip'); t.style.display = 'block'; t.innerHTML = '<strong>' + title + '</strong><br>' + body; t.style.left = Math.min(window.innerWidth - 260, e.clientX + 12) + 'px'; t.style.top = Math.min(window.innerHeight - 145, e.clientY + 12) + 'px'; }
+    function hideTip() { $('tooltip').style.display = 'none'; }
+    function render() { S.k = Math.max(0, Math.min(S.n, S.k)); $('step').max = S.n; $('step').value = S.k; $('stepLabel').textContent = S.k + ' / ' + S.n + ' inserted'; $('nextKey').textContent = S.k < S.n ? 'Next (' + names[S.tree] + '): ' + seq[S.tree][S.k] : 'All keys inserted'; renderTree(); renderPerformance(); renderHistogram(); }
+    setup();
+    rebuild();
+    render();
+    $('size').onchange = e => { stop(); S.n = +e.target.value; S.k = S.n; rebuild(); render(); };
+    $('seed').onchange = e => { stop(); S.seed = (+e.target.value || 0) >>> 0; rebuild(); render(); };
+    $('step').oninput = e => { stop(); S.k = +e.target.value; render(); };
+    $('reset').onclick = () => { stop(); S.k = 0; render(); };
+    $('all').onclick = () => { stop(); S.k = S.n; render(); };
+    $('play').onclick = () => { if (S.timer) {
+        stop();
+        return;
+    } if (S.k >= S.n)
+        S.k = 0; $('play').textContent = 'Ⅱ Pause'; S.timer = setInterval(() => { S.k++; render(); if (S.k >= S.n)
+        stop(); }, Math.max(90, 750 - S.n * 2)); };
+    $('treeType').onchange = e => { S.tree = +e.target.value; render(); };
+    $('histType').onchange = e => { S.hist = +e.target.value; renderHistogram(); };
+    $('histMode').onchange = e => { S.mode = e.target.value; renderHistogram(); };
+    $('trials').onchange = e => { S.trials = +e.target.value; renderHistogram(); };
+    document.querySelectorAll('#metricTabs button').forEach(b => b.onclick = () => { S.metric = b.dataset.m; document.querySelectorAll('#metricTabs button').forEach(x => x.classList.toggle('active', x === b)); renderPerformance(); });
+  
+  </script>
+ </body>
+</html>
